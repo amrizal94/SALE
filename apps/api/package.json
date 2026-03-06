@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:migrate": "pnpm --filter @sale/db migrate"
+    "db:migrate": "node dist/migrate.js"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

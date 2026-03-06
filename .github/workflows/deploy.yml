@@ -9,7 +9,7 @@ jobs:
   deploy:
     name: Deploy via SSH
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -30,15 +30,15 @@ jobs:
             echo "==> Pulling latest code"
             git pull origin main
 
-            echo "==> Copying production env (if not exists)"
-            [ -f .env ] || cp .env.example .env
-
             echo "==> Building and restarting containers"
             docker compose -f docker-compose.prod.yml build --no-cache
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
+            echo "==> Waiting for API to be healthy"
+            sleep 15
+
             echo "==> Running DB migrations"
-            docker compose -f docker-compose.prod.yml exec -T api pnpm db:migrate
+            docker compose -f docker-compose.prod.yml exec -T api node apps/api/dist/migrate.js
 
             echo "==> Cleaning unused Docker resources"
             docker system prune -f

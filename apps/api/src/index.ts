@@ -1,4 +1,4 @@
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import { config } from './config.js'
@@ -45,8 +45,8 @@ app.get('/health', () => ({
 }))
 
 // Error handler
-app.setErrorHandler((error, req, reply) => {
-  const statusCode = (error as any).statusCode ?? error.statusCode ?? 500
+app.setErrorHandler((error: FastifyError, _req, reply) => {
+  const statusCode = error.statusCode ?? 500
   app.log.error(error)
 
   if (statusCode === 429 || error.message === 'DAILY_LIMIT_REACHED') {
