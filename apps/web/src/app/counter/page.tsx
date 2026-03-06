@@ -38,11 +38,9 @@ export default function CounterPage() {
 
   useSSE({
     ticket_issued: () => loadTickets(),
-    ticket_called: (data) => {
-      // Hanya set activeTicket jika tiket ini dipanggil oleh loket kita sendiri
-      if (user?.counterId && data.counter?.id === user.counterId) {
-        setActiveTicket(data.ticket)
-      }
+    ticket_called: () => {
+      // Hanya reload list antrian — activeTicket sudah di-set langsung dari response callNext()
+      // Tidak set activeTicket di sini agar counter lain tidak ikut terpengaruh
       loadTickets()
     },
     ticket_done: (data) => {

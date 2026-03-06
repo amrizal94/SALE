@@ -166,13 +166,21 @@ export async function ticketRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'No waiting tickets' })
     }
 
-    const ticket = result[0] as typeof tickets.$inferSelect
+    const ticketId = (result[0] as any).id
 
     await db.insert(queueEvents).values({
-      ticketId: ticket.id,
+      ticketId,
       eventType: 'called',
       actorId: user.id,
       counterId,
+    })
+
+    // Refetch dengan ORM agar field names camelCase (bukan snake_case dari raw SQL)
+    const ticket = await db.query.tickets.findFirst({
+      where: eq(tickets.id, ticketId),
+      with: {
+        service: { columns: { id: true, name: true, prefix: true } },
+      },
     })
 
     // Broadcast ke display + loket
