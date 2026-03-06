@@ -16,11 +16,11 @@ const serviceSchema = z.object({
 })
 
 export async function serviceRoutes(app: FastifyInstance) {
-  // GET /api/services?locationId=x
-  app.get('/', { preHandler: authenticate }, async (req) => {
-    const user = req.user as JWTPayload
+  // GET /api/services?locationId=x — public jika ada locationId, protected jika tidak
+  app.get('/', async (req, reply) => {
     const query = req.query as { locationId?: string }
 
+    // Public: jika locationId diberikan, tidak perlu auth (untuk kiosk & display)
     if (query.locationId) {
       const locationId = parseInt(query.locationId)
       return db.select().from(services)
@@ -28,7 +28,14 @@ export async function serviceRoutes(app: FastifyInstance) {
         .orderBy(services.prefix)
     }
 
-    // super_admin bisa lihat semua layanan
+    // Protected: tanpa locationId, butuh auth
+    try {
+      await req.jwtVerify()
+    } catch {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+    const user = req.user as JWTPayload
+
     if (user.role === 'super_admin') {
       return db.select().from(services).where(eq(services.isActive, true)).orderBy(services.prefix)
     }

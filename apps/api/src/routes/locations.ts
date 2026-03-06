@@ -14,9 +14,9 @@ const locationSchema = z.object({
 })
 
 export async function locationRoutes(app: FastifyInstance) {
-  // GET /api/locations
-  app.get('/', { preHandler: authenticate }, async () => {
-    return db.select().from(locations).orderBy(locations.name)
+  // GET /api/locations — public
+  app.get('/', async () => {
+    return db.select().from(locations).where(eq(locations.isActive, true)).orderBy(locations.name)
   })
 
   // GET /api/locations/:id
