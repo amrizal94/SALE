@@ -39,11 +39,20 @@ export default function CounterPage() {
   useSSE({
     ticket_issued: () => loadTickets(),
     ticket_called: (data) => {
-      setActiveTicket(data.ticket)
+      // Hanya set activeTicket jika tiket ini dipanggil oleh loket kita sendiri
+      if (user?.counterId && data.counter?.id === user.counterId) {
+        setActiveTicket(data.ticket)
+      }
       loadTickets()
     },
-    ticket_done: () => { setActiveTicket(null); loadTickets() },
-    ticket_skipped: () => loadTickets(),
+    ticket_done: (data) => {
+      setActiveTicket((cur) => (cur?.id === data.ticket?.id ? null : cur))
+      loadTickets()
+    },
+    ticket_skipped: (data) => {
+      setActiveTicket((cur) => (cur?.id === data.ticket?.id ? null : cur))
+      loadTickets()
+    },
   })
 
   async function login(e: React.FormEvent) {
