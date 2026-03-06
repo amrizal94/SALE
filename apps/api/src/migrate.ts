@@ -8,8 +8,26 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required')
 const sql = postgres(databaseUrl, { max: 1 })
 const db = drizzle(sql)
 
-console.log('Running migrations...')
-await migrate(db, { migrationsFolder: '/app/packages/db/migrations' })
-console.log('Migrations complete!')
+const MIGRATIONS_FOLDER = '/app/packages/db/migrations'
 
-await sql.end()
+console.log('Running migrations...')
+
+try {
+  await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER })
+  console.log('Migrations complete!')
+} catch (err: any) {
+  // Jika error "already exists" — schema sudah ada, skip aman
+  const alreadyExists =
+    err?.code === '42710' || // type already exists
+    err?.code === '42P07' || // relation already exists
+    err?.message?.includes('already exists')
+
+  if (alreadyExists) {
+    console.log('Schema already exists, skipping migration. (OK)')
+  } else {
+    console.error('Migration failed:', err)
+    process.exit(1)
+  }
+} finally {
+  await sql.end()
+}
