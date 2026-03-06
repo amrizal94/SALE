@@ -133,6 +133,15 @@ function DisplayMain({ onReset }: { onReset: () => void }) {
 
   useEffect(() => { loadWaiting() }, [loadWaiting])
 
+  // Workaround bug Chrome: speechSynthesis berhenti sendiri di background tab
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (window.speechSynthesis.speaking) return
+      window.speechSynthesis.resume()
+    }, 5000)
+    return () => clearInterval(id)
+  }, [])
+
   function flash() {
     setIsFlashing(true)
     setTimeout(() => setIsFlashing(false), 1500)
