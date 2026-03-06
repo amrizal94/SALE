@@ -5,11 +5,13 @@ import type { JWTPayload } from '../lib/auth.js'
 export async function sseRoutes(app: FastifyInstance) {
   // GET /api/sse — Realtime event stream per lokasi
   app.get('/', async (req, reply) => {
-    // Verify JWT manual (tidak pakai preHandler agar bisa handle raw response)
+    // EventSource tidak bisa set header → token dikirim via ?token= query param
+    const token = (req.query as any).token as string | undefined
+    if (!token) return reply.status(401).send({ error: 'Unauthorized' })
+
     let user: JWTPayload
     try {
-      await req.jwtVerify()
-      user = req.user as JWTPayload
+      user = app.jwt.verify(token) as JWTPayload
     } catch {
       return reply.status(401).send({ error: 'Unauthorized' })
     }
