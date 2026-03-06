@@ -147,7 +147,7 @@ export async function ticketRoutes(app: FastifyInstance) {
         WHERE date = ${today}
           AND location_id = ${user.locationId!}
           AND status = 'waiting'
-          AND service_id = ANY(${counter.serviceIds}::int[])
+          AND service_id = ANY(ARRAY[${sql.raw(counter.serviceIds.join(','))}]::int[])
         ORDER BY sequence_number ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED
