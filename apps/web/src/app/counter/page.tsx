@@ -200,7 +200,7 @@ export default function CounterPage() {
               </button>
               <button
                 onClick={() => action('skip')}
-                disabled={loading}
+                disabled={loading || activeTicket.status === 'serving'}
                 className="bg-orange-700 hover:bg-orange-600 disabled:opacity-40 text-white rounded-xl py-3 font-semibold transition-colors"
               >
                 Lewati
