@@ -27,8 +27,9 @@ jobs:
             echo "==> Navigating to project directory"
             cd /opt/sale
 
-            echo "==> Pulling latest code"
-            git pull origin main
+            echo "==> Syncing with GitHub (discard local changes)"
+            git fetch origin
+            git reset --hard origin/main
 
             echo "==> Building and restarting containers"
             docker compose -f docker-compose.prod.yml build --no-cache
