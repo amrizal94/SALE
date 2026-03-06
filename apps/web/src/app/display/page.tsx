@@ -113,8 +113,17 @@ function DisplayMain({ onReset }: { onReset: () => void }) {
   const [recentTickets, setRecentTickets]   = useState<CalledTicket[]>([])
   const [waitingGroups, setWaitingGroups]   = useState<WaitingGroup[]>([])
   const [isFlashing, setIsFlashing]         = useState(false)
+  const [audioUnlocked, setAudioUnlocked]   = useState(false)
   const audioQueue  = useRef<string[]>([])
   const isSpeaking  = useRef(false)
+
+  function unlockAudio() {
+    // Trigger dummy utterance untuk unlock audio context Chrome
+    const u = new SpeechSynthesisUtterance('')
+    window.speechSynthesis.speak(u)
+    window.speechSynthesis.cancel()
+    setAudioUnlocked(true)
+  }
 
   const loadWaiting = useCallback(async () => {
     try {
@@ -193,6 +202,19 @@ function DisplayMain({ onReset }: { onReset: () => void }) {
         isFlashing ? 'bg-blue-950' : 'bg-gray-950'
       }`}
     >
+      {/* Overlay unlock audio — muncul sampai user klik layar */}
+      {!audioUnlocked && (
+        <div
+          onClick={unlockAudio}
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 cursor-pointer"
+        >
+          <div className="text-center">
+            <div className="text-6xl mb-4">🔊</div>
+            <div className="text-white text-2xl font-bold">Tap untuk mengaktifkan suara</div>
+            <div className="text-gray-400 text-sm mt-2">Klik di mana saja untuk melanjutkan</div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-blue-900 px-10 py-4 flex items-center justify-between">
         <div className="font-bold text-xl tracking-wide">SALE — Layanan ETLE</div>
