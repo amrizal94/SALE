@@ -12,61 +12,6 @@ const createTicketSchema = z.object({
 })
 
 export async function ticketRoutes(app: FastifyInstance) {
-  // POST /api/tickets/kiosk — Ambil nomor antrian publik (tanpa auth)
-  app.post('/kiosk', async (req, reply) => {
-    const body = z.object({
-      locationId: z.number().int().positive(),
-      serviceId: z.number().int().positive(),
-    }).safeParse(req.body)
-    if (!body.success) return reply.status(400).send({ error: 'Invalid input' })
-
-    const { locationId, serviceId } = body.data
-    const today = new Date().toISOString().split('T')[0]
-
-    const [service] = await db
-      .select()
-      .from(services)
-      .where(and(eq(services.id, serviceId), eq(services.locationId, locationId)))
-      .limit(1)
-
-    if (!service || !service.isActive) {
-      return reply.status(404).send({ error: 'Service not found or inactive' })
-    }
-
-    const ticket = await db.transaction(async (tx) => {
-      const [seq] = await tx
-        .insert(ticketSequences)
-        .values({ locationId, serviceId, date: today, lastSequence: 1 })
-        .onConflictDoUpdate({
-          target: [ticketSequences.locationId, ticketSequences.serviceId, ticketSequences.date],
-          set: { lastSequence: sql`ticket_sequences.last_sequence + 1` },
-        })
-        .returning()
-
-      if (seq.lastSequence > service.dailyLimit) {
-        throw Object.assign(new Error('DAILY_LIMIT_REACHED'), { statusCode: 429 })
-      }
-
-      const ticketNumber = `${service.prefix}${String(seq.lastSequence).padStart(3, '0')}`
-
-      const [ticket] = await tx
-        .insert(tickets)
-        .values({ locationId, serviceId, date: today, sequenceNumber: seq.lastSequence, ticketNumber })
-        .returning()
-
-      await tx.insert(queueEvents).values({ ticketId: ticket.id, eventType: 'issued' })
-
-      return ticket
-    })
-
-    sseManager.broadcast(locationId, 'ticket_issued', {
-      ticket,
-      service: { id: service.id, name: service.name, prefix: service.prefix },
-    })
-
-    return reply.status(201).send({ ticket, service })
-  })
-
   // POST /api/tickets — Ambil nomor antrian (kiosk/officer)
   app.post('/', { preHandler: authenticate }, async (req, reply) => {
     const user = req.user as JWTPayload

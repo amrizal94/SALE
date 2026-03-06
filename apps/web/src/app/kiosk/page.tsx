@@ -1,79 +1,170 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+const TOKEN_KEY = 'kiosk_token'
 
-type Location = { id: number; name: string; code: string }
-type Service  = { id: number; name: string; prefix: string; estimatedMinutes: number }
+type Service     = { id: number; name: string; prefix: string; estimatedMinutes: number }
+type KioskUser   = { id: number; name: string; role: string; locationId: number }
 type TicketResult = { ticket: { ticketNumber: string; id: number }; service: { name: string } }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`)
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Error')
-  return res.json()
-}
-
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function kioskFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null
   const res = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
   })
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Error')
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error ?? `Error ${res.status}`)
+  }
   return res.json()
 }
 
+// ── Setup screen ───────────────────────────────────────────────────────
+function SetupScreen({ onSuccess }: { onSuccess: (user: KioskUser) => void }) {
+  const [form, setForm] = useState({ username: '', password: '' })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const { token, user } = await kioskFetch<{ token: string; user: KioskUser }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(form),
+      })
+      if (user.role !== 'kiosk') {
+        setError('Akun ini bukan akun kiosk. Gunakan akun dengan role Kiosk.')
+        return
+      }
+      if (!user.locationId) {
+        setError('Akun kiosk belum di-assign ke lokasi. Hubungi admin.')
+        return
+      }
+      localStorage.setItem(TOKEN_KEY, token)
+      onSuccess(user)
+    } catch (e: any) {
+      setError(e.message ?? 'Login gagal')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="page-kiosk bg-gray-950 flex flex-col items-center justify-center">
+      <form onSubmit={submit} className="bg-gray-900 rounded-2xl p-10 w-full max-w-sm shadow-2xl">
+        <div className="text-center mb-8">
+          <div className="text-blue-400 font-black text-3xl mb-1">SALE</div>
+          <div className="text-white font-semibold text-xl">Setup Perangkat Kiosk</div>
+          <div className="text-gray-500 text-sm mt-1">Masukkan akun kiosk yang dibuat admin</div>
+        </div>
+
+        {error && (
+          <div className="bg-red-900/60 text-red-300 rounded-xl px-4 py-3 text-sm mb-5 text-center">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <input
+            type="text"
+            placeholder="Username kiosk"
+            value={form.username}
+            onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-blue-500 text-base"
+            autoComplete="off"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-blue-500 text-base"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl py-4 font-bold text-lg transition-colors"
+          >
+            {loading ? 'Menghubungkan...' : 'Aktifkan Kiosk'}
+          </button>
+        </div>
+
+        <p className="text-gray-600 text-xs text-center mt-6">
+          Setup hanya dilakukan sekali per perangkat
+        </p>
+      </form>
+    </div>
+  )
+}
+
+// ── Main kiosk page ────────────────────────────────────────────────────
 export default function KioskPage() {
-  const [locationId, setLocationId] = useState<number | null>(null)
-  const [locationName, setLocationName] = useState('')
-  const [locations, setLocations] = useState<Location[]>([])
+  const [user, setUser] = useState<KioskUser | null>(null)
+  const [ready, setReady] = useState(false)
   const [services, setServices] = useState<Service[]>([])
   const [result, setResult] = useState<TicketResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pickingLocation, setPickingLocation] = useState(false)
 
-  // Load saved location on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('kiosk_location_id')
-    const savedName = localStorage.getItem('kiosk_location_name')
-    if (saved) {
-      setLocationId(parseInt(saved))
-      setLocationName(savedName ?? '')
-    } else {
-      setPickingLocation(true)
-      get<Location[]>('/api/locations').then(setLocations).catch(() => {})
+  const loadServices = useCallback(async () => {
+    try {
+      const data = await kioskFetch<Service[]>('/api/services')
+      setServices(data)
+    } catch {
+      setError('Gagal memuat layanan. Periksa koneksi.')
     }
   }, [])
 
-  // Load services when locationId is set
+  // Validate stored token on mount
   useEffect(() => {
-    if (!locationId) return
-    get<Service[]>(`/api/services?locationId=${locationId}`)
-      .then(setServices)
-      .catch(() => setError('Gagal memuat layanan'))
-  }, [locationId])
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) { setReady(true); return }
 
-  function selectLocation(loc: Location) {
-    localStorage.setItem('kiosk_location_id', String(loc.id))
-    localStorage.setItem('kiosk_location_name', loc.name)
-    setLocationId(loc.id)
-    setLocationName(loc.name)
-    setPickingLocation(false)
+    kioskFetch<KioskUser>('/api/auth/me')
+      .then((u) => {
+        if (u.role === 'kiosk' && u.locationId) {
+          setUser(u)
+          loadServices()
+        } else {
+          // Token ada tapi bukan akun kiosk — reset
+          localStorage.removeItem(TOKEN_KEY)
+        }
+      })
+      .catch(() => localStorage.removeItem(TOKEN_KEY))
+      .finally(() => setReady(true))
+  }, [loadServices])
+
+  function handleSetupSuccess(u: KioskUser) {
+    setUser(u)
+    loadServices()
   }
 
-  function changeLocation() {
-    get<Location[]>('/api/locations').then(setLocations).catch(() => {})
-    setPickingLocation(true)
+  function resetDevice() {
+    if (!confirm('Reset perangkat ini? Perlu setup ulang oleh admin.')) return
+    localStorage.removeItem(TOKEN_KEY)
+    setUser(null)
+    setServices([])
+    setResult(null)
+    setError(null)
   }
 
   async function takeNumber(serviceId: number) {
-    if (!locationId) return
     setLoading(true)
     setError(null)
     try {
-      const data = await post<TicketResult>('/api/tickets/kiosk', { locationId, serviceId })
+      const data = await kioskFetch<TicketResult>('/api/tickets', {
+        method: 'POST',
+        body: JSON.stringify({ serviceId }),
+      })
       setResult(data)
       setTimeout(() => setResult(null), 8000)
     } catch (e: any) {
@@ -83,33 +174,11 @@ export default function KioskPage() {
     }
   }
 
-  // Location picker screen
-  if (pickingLocation) {
-    return (
-      <div className="page-kiosk bg-gray-950 flex flex-col items-center justify-center gap-8">
-        <div className="text-center">
-          <div className="text-white font-bold text-3xl mb-2">SALE</div>
-          <div className="text-gray-400 text-lg">Pilih Lokasi Kiosk</div>
-        </div>
-        <div className="w-full max-w-md space-y-3 px-4">
-          {locations.length === 0 && (
-            <div className="text-gray-500 text-center py-8">Memuat lokasi...</div>
-          )}
-          {locations.map((loc) => (
-            <button
-              key={loc.id}
-              onClick={() => selectLocation(loc)}
-              className="w-full bg-blue-700 hover:bg-blue-600 active:scale-95 text-white rounded-2xl px-6 py-5 text-left transition-all"
-            >
-              <div className="font-semibold text-lg">{loc.name}</div>
-              <div className="text-blue-300 text-sm mt-0.5 font-mono">{loc.code}</div>
-            </button>
-          ))}
-        </div>
-        <p className="text-gray-600 text-xs">Pilihan ini disimpan di perangkat ini</p>
-      </div>
-    )
-  }
+  // Jangan render apapun sampai token dicek (hindari flicker)
+  if (!ready) return null
+
+  // Setup screen
+  if (!user) return <SetupScreen onSuccess={handleSetupSuccess} />
 
   // Ticket result screen
   if (result) {
@@ -140,9 +209,7 @@ export default function KioskPage() {
           <div className="text-white text-sm">
             {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
-          <button onClick={changeLocation} className="text-blue-400 hover:text-blue-200 text-xs mt-1 transition-colors">
-            {locationName} · Ganti Lokasi
-          </button>
+          <div className="text-blue-400 text-xs mt-0.5">{user.name}</div>
         </div>
       </header>
 
@@ -182,8 +249,11 @@ export default function KioskPage() {
         </div>
       </main>
 
-      <footer className="py-4 text-center text-gray-600 text-xs">
-        Sentuh tombol layanan untuk mengambil nomor antrian
+      <footer className="py-4 px-8 flex items-center justify-between text-gray-700 text-xs">
+        <span>Sentuh tombol layanan untuk mengambil nomor antrian</span>
+        <button onClick={resetDevice} className="hover:text-gray-500 transition-colors">
+          Reset Perangkat
+        </button>
       </footer>
     </div>
   )
