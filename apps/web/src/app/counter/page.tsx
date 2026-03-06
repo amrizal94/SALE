@@ -84,7 +84,10 @@ export default function CounterPage() {
     if (!activeTicket) return
     setLoading(true)
     try {
-      if (type === 'serve') await api.tickets.serve(activeTicket.id)
+      if (type === 'serve') {
+        await api.tickets.serve(activeTicket.id)
+        setActiveTicket((cur) => cur ? { ...cur, status: 'serving' } : null)
+      }
       if (type === 'done') { await api.tickets.done(activeTicket.id); setActiveTicket(null) }
       if (type === 'skip') { await api.tickets.skip(activeTicket.id); setActiveTicket(null) }
       await loadTickets()
