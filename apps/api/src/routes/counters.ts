@@ -19,8 +19,20 @@ export async function counterRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: authenticate }, async (req) => {
     const user = req.user as JWTPayload
     const query = req.query as { locationId?: string }
-    const locationId = query.locationId ? parseInt(query.locationId) : user.locationId ?? 0
 
+    if (query.locationId) {
+      const locationId = parseInt(query.locationId)
+      return db.select().from(counters)
+        .where(and(eq(counters.locationId, locationId), eq(counters.isActive, true)))
+        .orderBy(counters.code)
+    }
+
+    // super_admin bisa lihat semua loket
+    if (user.role === 'super_admin') {
+      return db.select().from(counters).where(eq(counters.isActive, true)).orderBy(counters.code)
+    }
+
+    const locationId = user.locationId ?? 0
     return db
       .select()
       .from(counters)

@@ -44,6 +44,9 @@ jobs:
             echo "==> Running DB migrations"
             docker compose -f docker-compose.prod.yml exec -T api node apps/api/dist/migrate.js
 
+            echo "==> Seeding initial data (skipped if already seeded)"
+            docker compose -f docker-compose.prod.yml exec -T api node apps/api/dist/seed.js
+
             echo "==> Cleaning unused Docker resources"
             docker system prune -f
 

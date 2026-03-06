@@ -21,11 +21,19 @@ export async function serviceRoutes(app: FastifyInstance) {
     const user = req.user as JWTPayload
     const query = req.query as { locationId?: string }
 
-    // Kiosk & display hanya bisa lihat servicenya sendiri
-    const locationId = query.locationId
-      ? parseInt(query.locationId)
-      : user.locationId ?? 0
+    if (query.locationId) {
+      const locationId = parseInt(query.locationId)
+      return db.select().from(services)
+        .where(and(eq(services.locationId, locationId), eq(services.isActive, true)))
+        .orderBy(services.prefix)
+    }
 
+    // super_admin bisa lihat semua layanan
+    if (user.role === 'super_admin') {
+      return db.select().from(services).where(eq(services.isActive, true)).orderBy(services.prefix)
+    }
+
+    const locationId = user.locationId ?? 0
     return db
       .select()
       .from(services)

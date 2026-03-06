@@ -2,11 +2,20 @@ import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { locations, services, counters, users, kioskDevices } from './schema.js'
 import bcrypt from 'bcryptjs'
+import { eq } from 'drizzle-orm'
 
 const sql = postgres(process.env.DATABASE_URL ?? 'postgresql://sale_user:changeme@localhost:5432/sale_db')
 const db = drizzle(sql)
 
 async function seed() {
+  // Idempotent: skip jika superadmin sudah ada
+  const existing = await db.select().from(users).where(eq(users.username, 'superadmin')).limit(1)
+  if (existing.length > 0) {
+    console.log('Database already seeded, skipping.')
+    await sql.end()
+    return
+  }
+
   console.log('Seeding database...')
 
   // Location
@@ -143,4 +152,4 @@ async function seed() {
   await sql.end()
 }
 
-seed().catch(console.error)
+seed().catch((err) => { console.error(err); process.exit(1) })

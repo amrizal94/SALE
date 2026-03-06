@@ -56,11 +56,25 @@ export const api = {
       request<any>(`/api/tickets/${id}/print-confirm`, { method: 'PATCH' }),
   },
 
+  locations: {
+    list: () => request<any[]>('/api/locations'),
+    create: (data: any) =>
+      request<any>('/api/locations', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: any) =>
+      request<any>(`/api/locations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  },
+
   services: {
     list: (locationId?: number) => {
       const qs = locationId ? `?locationId=${locationId}` : ''
       return request<any[]>(`/api/services${qs}`)
     },
+    create: (data: any) =>
+      request<any>('/api/services', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: any) =>
+      request<any>(`/api/services/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      request<any>(`/api/services/${id}`, { method: 'DELETE' }),
   },
 
   counters: {
@@ -68,9 +82,17 @@ export const api = {
       const qs = locationId ? `?locationId=${locationId}` : ''
       return request<any[]>(`/api/counters${qs}`)
     },
+    create: (data: any) =>
+      request<any>('/api/counters', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: any) =>
+      request<any>(`/api/counters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
 
-  locations: {
-    list: () => request<any[]>('/api/locations'),
+  users: {
+    list: () => request<any[]>('/api/users'),
+    create: (data: any) =>
+      request<any>('/api/users', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: any) =>
+      request<any>(`/api/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
 }
