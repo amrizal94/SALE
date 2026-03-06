@@ -16,6 +16,7 @@ type User = { id: number; name: string; role: string; counterId: number; locatio
 
 export default function CounterPage() {
   const [user, setUser] = useState<User | null>(null)
+  const [counterName, setCounterName] = useState('')
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
   const [loading, setLoading] = useState(false)
@@ -29,12 +30,21 @@ export default function CounterPage() {
     } catch {}
   }, [])
 
+  const loadCounterName = useCallback(async (u: User) => {
+    if (!u.counterId || !u.locationId) return
+    try {
+      const list = await api.counters.list(u.locationId)
+      const counter = list.find((c: any) => c.id === u.counterId)
+      if (counter) setCounterName(counter.name)
+    } catch {}
+  }, [])
+
   useEffect(() => {
     const token = localStorage.getItem('sale_token')
     if (token) {
-      api.auth.me().then((u) => { setUser(u); loadTickets() }).catch(() => {})
+      api.auth.me().then((u) => { setUser(u); loadTickets(); loadCounterName(u) }).catch(() => {})
     }
-  }, [loadTickets])
+  }, [loadTickets, loadCounterName])
 
   useSSE({
     ticket_issued: () => loadTickets(),
@@ -61,6 +71,7 @@ export default function CounterPage() {
       localStorage.setItem('sale_token', token)
       setUser(user)
       loadTickets()
+      loadCounterName(user)
     } catch (err: any) {
       setLoginError(err.message ?? 'Login gagal')
     }
@@ -101,6 +112,7 @@ export default function CounterPage() {
   function logout() {
     localStorage.removeItem('sale_token')
     setUser(null)
+    setCounterName('')
     setTickets([])
     setActiveTicket(null)
   }
@@ -153,7 +165,7 @@ export default function CounterPage() {
       {/* Header */}
       <header className="bg-green-900 px-6 py-4 flex items-center justify-between">
         <div>
-          <div className="font-bold text-lg">Loket Petugas</div>
+          <div className="font-bold text-lg">{counterName || 'Loket Petugas'}</div>
           <div className="text-green-300 text-sm">{user.name}</div>
         </div>
         <button onClick={logout} className="text-green-300 hover:text-white text-sm transition-colors">
