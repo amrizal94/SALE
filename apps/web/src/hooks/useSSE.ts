@@ -4,13 +4,13 @@ import { useEffect, useRef, useCallback } from 'react'
 
 type SSEHandler = (data: any) => void
 
-export function useSSE(handlers: Record<string, SSEHandler>) {
+export function useSSE(handlers: Record<string, SSEHandler>, tokenKey = 'sale_token') {
   const esRef = useRef<EventSource | null>(null)
   const handlersRef = useRef(handlers)
   handlersRef.current = handlers
 
   const connect = useCallback(() => {
-    const token = localStorage.getItem('sale_token')
+    const token = localStorage.getItem(tokenKey)
     if (!token) return
 
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? ''
@@ -37,7 +37,7 @@ export function useSSE(handlers: Record<string, SSEHandler>) {
       // Reconnect setelah 3 detik
       setTimeout(connect, 3000)
     }
-  }, [])
+  }, [tokenKey])
 
   useEffect(() => {
     connect()
