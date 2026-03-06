@@ -1,0 +1,19 @@
+{
+  "name": "sale",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @sale/db generate",
+    "db:migrate": "pnpm --filter @sale/db migrate",
+    "db:seed": "pnpm --filter @sale/db seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

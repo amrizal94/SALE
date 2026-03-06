@@ -1,0 +1,48 @@
+'use client'
+
+import { useEffect, useRef, useCallback } from 'react'
+
+type SSEHandler = (data: any) => void
+
+export function useSSE(handlers: Record<string, SSEHandler>) {
+  const esRef = useRef<EventSource | null>(null)
+  const handlersRef = useRef(handlers)
+  handlersRef.current = handlers
+
+  const connect = useCallback(() => {
+    const token = localStorage.getItem('sale_token')
+    if (!token) return
+
+    const sseUrl = process.env.NEXT_PUBLIC_SSE_URL ?? 'http://localhost:4000/api/sse'
+    const url = `${sseUrl}?token=${token}`
+
+    const es = new EventSource(url)
+    esRef.current = es
+
+    es.addEventListener('connected', (e) => {
+      console.log('[SSE] Connected:', JSON.parse(e.data))
+    })
+
+    // Daftarkan semua event handler
+    const events = ['ticket_issued', 'ticket_called', 'ticket_serving', 'ticket_done', 'ticket_skipped']
+    for (const event of events) {
+      es.addEventListener(event, (e) => {
+        const data = JSON.parse(e.data)
+        handlersRef.current[event]?.(data)
+      })
+    }
+
+    es.onerror = () => {
+      es.close()
+      // Reconnect setelah 3 detik
+      setTimeout(connect, 3000)
+    }
+  }, [])
+
+  useEffect(() => {
+    connect()
+    return () => {
+      esRef.current?.close()
+    }
+  }, [connect])
+}
