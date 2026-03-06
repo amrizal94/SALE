@@ -15,9 +15,7 @@ CMD ["pnpm", "dev"]
 # Builder
 FROM base AS builder
 ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_SSE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_SSE_URL=$NEXT_PUBLIC_SSE_URL
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/web/package.json ./apps/web/
 RUN pnpm install --no-frozen-lockfile

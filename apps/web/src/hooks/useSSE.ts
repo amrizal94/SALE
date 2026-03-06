@@ -13,8 +13,8 @@ export function useSSE(handlers: Record<string, SSEHandler>) {
     const token = localStorage.getItem('sale_token')
     if (!token) return
 
-    const sseUrl = process.env.NEXT_PUBLIC_SSE_URL ?? 'http://localhost:4000/api/sse'
-    const url = `${sseUrl}?token=${token}`
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? ''
+    const url = `${apiBase}/api/sse?token=${token}`
 
     const es = new EventSource(url)
     esRef.current = es
