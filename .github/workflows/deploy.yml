@@ -9,7 +9,7 @@ jobs:
   deploy:
     name: Deploy via SSH
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -21,18 +21,21 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 25m
           script: |
             set -e
 
             echo "==> Navigating to project directory"
             cd /opt/sale
 
-            echo "==> Syncing with GitHub (discard local changes)"
+            echo "==> Syncing with GitHub"
             git fetch origin
             git reset --hard origin/main
 
-            echo "==> Building and restarting containers"
-            docker compose -f docker-compose.prod.yml build --no-cache
+            echo "==> Building containers (with cache)"
+            DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build
+
+            echo "==> Restarting containers"
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
             echo "==> Waiting for API to be healthy"
